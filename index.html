@@ -1,0 +1,1340 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Plate Detection System - 4-Stage Pipeline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .pipeline-info {
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .pipeline-steps {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .pipeline-step {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .upload-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+
+        .upload-tab {
+            padding: 10px 20px;
+            border-radius: 20px;
+            background: #f0f1ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .upload-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #764ba2;
+        }
+
+        .upload-tab:hover:not(.active) {
+            background: #e0e1ff;
+        }
+
+        .upload-section {
+            max-width: 600px;
+            margin: 0 auto 30px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .upload-area.dragging {
+            border-color: #764ba2;
+            background: #e8e9ff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f1ff;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            animation: progress 2s ease-in-out infinite;
+        }
+
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+
+        .result-section {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .success-banner {
+            background: #4caf50;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .media-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .media-box {
+            background: #f8f9ff;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .media-box h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .media-container {
+            position: relative;
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            background: #000;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .media-container video, .media-container img {
+            width: 100%;
+            height: auto;
+            max-height: 500px;
+            display: block;
+        }
+
+        .media-placeholder {
+            width: 100%;
+            height: 300px;
+            background: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2em;
+            border-radius: 10px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .enhancement-section {
+            background: #f8f9ff;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .enhancement-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .enhancement-comparison {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .comparison-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .comparison-item img {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            max-height: 250px;
+            object-fit: contain;
+        }
+
+        .comparison-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .detection-results {
+            background: #f8f9ff;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .detection-results h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+
+        .result-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .result-card .label {
+            color: #666;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+
+        .result-card .value {
+            color: #333;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+
+        .detected-plates {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .detected-plates h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .plate-item {
+            background: #f0f1ff;
+            border-left: 4px solid #667eea;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+
+        .plate-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .plate-text {
+            font-family: 'Courier New', monospace;
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #333;
+            letter-spacing: 2px;
+        }
+
+        .plate-badges {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
+        .badge-ocr {
+            background: #4caf50;
+            color: white;
+        }
+
+        .badge-svm {
+            background: #2196f3;
+            color: white;
+        }
+
+        .badge-yolo {
+            background: #ff9800;
+            color: white;
+        }
+
+        .badge-enhancer {
+            background: #9c27b0;
+            color: white;
+        }
+
+        .badge-violation {
+            background: #f44336;
+            color: white;
+        }
+
+        .badge-fallback {
+            background: #795548;
+            color: white;
+        }
+
+        .plate-details {
+            font-size: 0.85em;
+            color: #666;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .detail-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .violation-alert {
+            background: #ffebee;
+            border: 2px solid #f44336;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 8px;
+            font-weight: 600;
+            color: #d32f2f;
+        }
+
+        .fallback-alert {
+            background: #fff3e0;
+            border: 2px solid #ff9800;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 8px;
+            font-weight: 600;
+            color: #ef6c00;
+        }
+
+        .no-detections {
+            text-align: center;
+            color: #999;
+            padding: 30px;
+            font-style: italic;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .violation-stats {
+            background: #ffebee;
+            border: 2px solid #f44336;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .violation-stats .label {
+            font-weight: bold;
+            color: #d32f2f;
+        }
+
+        .violation-stats .value {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #b71c1c;
+        }
+
+        .txt-download-section {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .txt-download-section h4 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+
+        .txt-download-btn {
+            background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.2s ease;
+        }
+
+        .txt-download-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .media-comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .results-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .pipeline-steps {
+                font-size: 0.8em;
+            }
+
+            .plate-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .plate-badges {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚗 License Plate Detection System</h1>
+        <p class="subtitle">4-Stage Pipeline: YOLO → Real-ESRGAN → OCR → SVM</p>
+        
+        <div class="pipeline-info">
+            <div>🤖 Advanced 4-Stage Detection Pipeline</div>
+            <div class="pipeline-steps">
+                <span class="pipeline-step">📹 Video/Image Input</span>
+                <span class="pipeline-step">🎯 YOLO Detection</span>
+                <span class="pipeline-step">🎨 Real-ESRGAN Enhancement</span>
+                <span class="pipeline-step">🔤 Philippine Plate OCR</span>
+                <span class="pipeline-step">🤖 SVM Classification</span>
+                <span class="pipeline-step">⚠️ Violation Detection</span>
+                <span class="pipeline-step">📄 TXT Report</span>
+            </div>
+        </div>
+
+        <div class="upload-tabs">
+            <div class="upload-tab active" id="videoTab" onclick="switchTab('video')">
+                📹 Video Processing
+            </div>
+            <div class="upload-tab" id="imageTab" onclick="switchTab('image')">
+                🖼️ Image Processing
+            </div>
+        </div>
+
+        <!-- Video Upload Section -->
+        <div class="upload-section" id="videoUploadSection">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="upload-area" id="videoUploadArea">
+                    <div class="upload-icon">📹</div>
+                    <div class="upload-text">Click to upload or drag and drop</div>
+                    <div class="upload-hint">Supports MP4, AVI, MOV (Max 1GB)</div>
+                    <input type="file" id="videoInput" name="video" accept="video/*">
+                </div>
+
+                <div class="file-info" id="videoFileInfo">
+                    <strong>Selected file:</strong> <span id="videoFileName"></span><br>
+                    <strong>Size:</strong> <span id="videoFileSize"></span>
+                </div>
+
+                <button type="submit" class="btn" id="videoSubmitBtn" disabled>
+                    🚀 Process Video with 4-Stage Pipeline
+                </button>
+            </form>
+        </div>
+
+        <!-- Image Upload Section -->
+        <div class="upload-section" id="imageUploadSection" style="display: none;">
+            <form id="uploadImageForm" enctype="multipart/form-data">
+                <div class="upload-area" id="imageUploadArea">
+                    <div class="upload-icon">🖼️</div>
+                    <div class="upload-text">Click to upload or drag and drop</div>
+                    <div class="upload-hint">Supports JPG, JPEG, PNG (Max 50MB)</div>
+                    <input type="file" id="imageInput" name="image" accept="image/*">
+                </div>
+
+                <div class="file-info" id="imageFileInfo">
+                    <strong>Selected file:</strong> <span id="imageFileName"></span><br>
+                    <strong>Size:</strong> <span id="imageFileSize"></span>
+                </div>
+
+                <button type="submit" class="btn" id="imageSubmitBtn" disabled>
+                    🚀 Process Image with 4-Stage Pipeline
+                </button>
+            </form>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing through 4-stage pipeline...</p>
+            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                YOLO → Real-ESRGAN → OCR → SVM → Violation Detection
+            </p>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="result-section" id="resultSection">
+            <div class="success-banner">
+                ✅ 4-Stage Pipeline Processing Successful!
+            </div>
+
+            <!-- Violation Stats -->
+            <div class="violation-stats" id="violationStats" style="display: none;">
+                <div class="label">⚡ Coding Violations Detected:</div>
+                <div class="value" id="violationsDetected">0</div>
+                <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                    Rush hour and weekend coding violations
+                </div>
+            </div>
+
+            <!-- TXT Download Section -->
+            <div class="txt-download-section" id="txtDownloadSection" style="display: none;">
+                <h4>📄 Detected Plates Report Available</h4>
+                <p style="margin-bottom: 10px; color: #555;">
+                    Download complete report of all detected license plates with details
+                </p>
+                <button class="txt-download-btn" id="txtDownloadBtn" onclick="downloadTxtReport()">
+                    📥 Download TXT Report
+                </button>
+            </div>
+
+            <!-- Media Comparison -->
+            <div class="media-comparison" id="mediaComparison">
+                <div class="media-box">
+                    <h3 id="originalMediaLabel">📹 Original Video</h3>
+                    <div class="media-container">
+                        <div class="media-placeholder" id="originalPlaceholder">
+                            Original media will appear here
+                        </div>
+                        <video id="originalVideo" controls preload="metadata" playsinline style="display: none;">
+                            Your browser does not support the video tag.
+                        </video>
+                        <img id="originalImage" style="display: none;" alt="Original Image">
+                    </div>
+                </div>
+
+                <div class="media-box">
+                    <h3 id="processedMediaLabel">🎯 Processed Result (4-Stage Pipeline)</h3>
+                    <div class="media-container">
+                        <div class="media-placeholder" id="processedPlaceholder">
+                            Processed media will appear here
+                        </div>
+                        <video id="processedVideo" controls preload="metadata" playsinline style="display: none;">
+                            Your browser does not support the video tag.
+                        </video>
+                        <img id="processedImage" style="display: none;" alt="Processed Image">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-ESRGAN Enhancement Section -->
+            <div class="enhancement-section" id="enhancementSection" style="display: none;">
+                <h2>🎨 Real-ESRGAN Enhancement Results</h2>
+                <div class="enhancement-comparison" id="enhancementComparison">
+                    <!-- Enhancement images will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Detection Results -->
+            <div class="detection-results">
+                <h2>📊 4-Stage Pipeline Results</h2>
+                
+                <div class="results-grid">
+                    <div class="result-card">
+                        <div class="label">Stage 1: YOLO Detections</div>
+                        <div class="value" id="stage1YoloDetections">0</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="label">Stage 2: Enhancement Applied</div>
+                        <div class="value" id="stage2EnhancementApplied">0</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="label">Stage 3: OCR Success</div>
+                        <div class="value" id="stage3OcrSuccess">0</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="label">Stage 4: SVM Classified</div>
+                        <div class="value" id="stage4SvmClassified">0</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="label">Stage 4: Violations</div>
+                        <div class="value" id="stage4ViolationsDetected">0</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="label">Unique Plates</div>
+                        <div class="value" id="uniquePlates">0</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="label">Processing Time</div>
+                        <div class="value" id="processingTime">-</div>
+                    </div>
+                </div>
+
+                <div class="detected-plates">
+                    <h3>🔍 Detected License Plates (4-Stage Pipeline)</h3>
+                    <div id="platesList">
+                        <div class="no-detections">
+                            No license plates detected yet. Upload and process a video or image to see results.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'video';
+        let currentTxtUrl = null;
+        
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update tabs
+            document.getElementById('videoTab').classList.toggle('active', tab === 'video');
+            document.getElementById('imageTab').classList.toggle('active', tab === 'image');
+            
+            // Show/hide upload sections
+            document.getElementById('videoUploadSection').style.display = tab === 'video' ? 'block' : 'none';
+            document.getElementById('imageUploadSection').style.display = tab === 'image' ? 'block' : 'none';
+            
+            // Reset forms
+            resetForms();
+            resetResults();
+        }
+        
+        function resetForms() {
+            // Reset video form
+            document.getElementById('videoInput').value = '';
+            document.getElementById('videoFileInfo').classList.remove('show');
+            document.getElementById('videoSubmitBtn').disabled = true;
+            
+            // Reset image form
+            document.getElementById('imageInput').value = '';
+            document.getElementById('imageFileInfo').classList.remove('show');
+            document.getElementById('imageSubmitBtn').disabled = true;
+        }
+        
+        function resetResults() {
+            // Hide result section
+            document.getElementById('resultSection').classList.remove('show');
+            document.getElementById('loading').classList.remove('show');
+            document.getElementById('errorMessage').classList.remove('show');
+            
+            // Reset media display
+            document.getElementById('originalVideo').style.display = 'none';
+            document.getElementById('processedVideo').style.display = 'none';
+            document.getElementById('originalImage').style.display = 'none';
+            document.getElementById('processedImage').style.display = 'none';
+            
+            document.getElementById('originalPlaceholder').style.display = 'flex';
+            document.getElementById('processedPlaceholder').style.display = 'flex';
+            
+            // Reset video sources
+            const originalVideo = document.getElementById('originalVideo');
+            const processedVideo = document.getElementById('processedVideo');
+            originalVideo.innerHTML = '';
+            processedVideo.innerHTML = '';
+            
+            // Hide txt download section
+            document.getElementById('txtDownloadSection').style.display = 'none';
+            currentTxtUrl = null;
+            
+            // Hide violation stats
+            document.getElementById('violationStats').style.display = 'none';
+            
+            // Hide enhancement section
+            document.getElementById('enhancementSection').style.display = 'none';
+            
+            // Reset results
+            document.getElementById('stage1YoloDetections').textContent = '0';
+            document.getElementById('stage2EnhancementApplied').textContent = '0';
+            document.getElementById('stage3OcrSuccess').textContent = '0';
+            document.getElementById('stage4SvmClassified').textContent = '0';
+            document.getElementById('stage4ViolationsDetected').textContent = '0';
+            document.getElementById('uniquePlates').textContent = '0';
+            document.getElementById('processingTime').textContent = '-';
+            document.getElementById('violationsDetected').textContent = '0';
+            
+            // Clear plates list
+            document.getElementById('platesList').innerHTML = 
+                '<div class="no-detections">No license plates detected yet. Upload and process a video or image to see results.</div>';
+            
+            // Clear enhancement comparison
+            document.getElementById('enhancementComparison').innerHTML = '';
+            
+            // Update labels based on current tab
+            if (currentTab === 'video') {
+                document.getElementById('originalMediaLabel').textContent = '📹 Original Video';
+                document.getElementById('processedMediaLabel').textContent = '🎯 Processed Video';
+            } else {
+                document.getElementById('originalMediaLabel').textContent = '🖼️ Original Image';
+                document.getElementById('processedMediaLabel').textContent = '🎯 Annotated Image';
+            }
+        }
+        
+        function downloadTxtReport() {
+            if (currentTxtUrl) {
+                window.open('/static/' + currentTxtUrl, '_blank');
+            }
+        }
+        
+        // Initialize upload areas
+        const videoUploadArea = document.getElementById('videoUploadArea');
+        const videoInput = document.getElementById('videoInput');
+        const videoFileInfo = document.getElementById('videoFileInfo');
+        const videoFileName = document.getElementById('videoFileName');
+        const videoFileSize = document.getElementById('videoFileSize');
+        const videoSubmitBtn = document.getElementById('videoSubmitBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        
+        const imageUploadArea = document.getElementById('imageUploadArea');
+        const imageInput = document.getElementById('imageInput');
+        const imageFileInfo = document.getElementById('imageFileInfo');
+        const imageFileName = document.getElementById('imageFileName');
+        const imageFileSize = document.getElementById('imageFileSize');
+        const imageSubmitBtn = document.getElementById('imageSubmitBtn');
+        const uploadImageForm = document.getElementById('uploadImageForm');
+        
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const errorMessage = document.getElementById('errorMessage');
+        const originalVideo = document.getElementById('originalVideo');
+        const processedVideo = document.getElementById('processedVideo');
+        const originalImage = document.getElementById('originalImage');
+        const processedImage = document.getElementById('processedImage');
+        const originalPlaceholder = document.getElementById('originalPlaceholder');
+        const processedPlaceholder = document.getElementById('processedPlaceholder');
+        const enhancementSection = document.getElementById('enhancementSection');
+        const enhancementComparison = document.getElementById('enhancementComparison');
+        const violationStats = document.getElementById('violationStats');
+        const txtDownloadSection = document.getElementById('txtDownloadSection');
+        const txtDownloadBtn = document.getElementById('txtDownloadBtn');
+        
+        // Video upload handlers
+        videoUploadArea.addEventListener('click', () => videoInput.click());
+        setupDragAndDrop(videoUploadArea, videoInput, handleVideoFileSelect);
+        
+        videoInput.addEventListener('change', handleVideoFileSelect);
+        
+        function handleVideoFileSelect() {
+            const file = videoInput.files[0];
+            if (file) {
+                videoFileName.textContent = file.name;
+                videoFileSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+                videoFileInfo.classList.add('show');
+                videoSubmitBtn.disabled = false;
+                resetResults();
+            }
+        }
+        
+        // Image upload handlers
+        imageUploadArea.addEventListener('click', () => imageInput.click());
+        setupDragAndDrop(imageUploadArea, imageInput, handleImageFileSelect);
+        
+        imageInput.addEventListener('change', handleImageFileSelect);
+        
+        function handleImageFileSelect() {
+            const file = imageInput.files[0];
+            if (file) {
+                imageFileName.textContent = file.name;
+                imageFileSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+                imageFileInfo.classList.add('show');
+                imageSubmitBtn.disabled = false;
+                resetResults();
+            }
+        }
+        
+        function setupDragAndDrop(uploadArea, fileInput, callback) {
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragging');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragging');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragging');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    callback();
+                }
+            });
+        }
+        
+        // Video form submission
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('video', videoInput.files[0]);
+
+            videoSubmitBtn.disabled = true;
+            imageSubmitBtn.disabled = true;
+            loading.classList.add('show');
+            resultSection.classList.remove('show');
+            errorMessage.classList.remove('show');
+            enhancementSection.style.display = 'none';
+            violationStats.style.display = 'none';
+            txtDownloadSection.style.display = 'none';
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                processResponse(data);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                errorMessage.textContent = '❌ Error: ' + error.message;
+                errorMessage.classList.add('show');
+            } finally {
+                loading.classList.remove('show');
+                videoSubmitBtn.disabled = false;
+                imageSubmitBtn.disabled = false;
+            }
+        });
+        
+        // Image form submission
+        uploadImageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('image', imageInput.files[0]);
+
+            videoSubmitBtn.disabled = true;
+            imageSubmitBtn.disabled = true;
+            loading.classList.add('show');
+            resultSection.classList.remove('show');
+            errorMessage.classList.remove('show');
+            enhancementSection.style.display = 'none';
+            violationStats.style.display = 'none';
+            txtDownloadSection.style.display = 'none';
+
+            try {
+                const response = await fetch('/upload-image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                processResponse(data, true);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                errorMessage.textContent = '❌ Error: ' + error.message;
+                errorMessage.classList.add('show');
+            } finally {
+                loading.classList.remove('show');
+                videoSubmitBtn.disabled = false;
+                imageSubmitBtn.disabled = false;
+            }
+        });
+        
+        function processResponse(data, isImage = false) {
+            if (data.success) {
+                console.log('Processing successful:', data);
+                
+                // Hide placeholders
+                originalPlaceholder.style.display = 'none';
+                processedPlaceholder.style.display = 'none';
+                
+                if (isImage) {
+                    // Handle image response
+                    console.log('Image URLs:', {
+                        original: data.original_image_url,
+                        annotated: data.annotated_image_url
+                    });
+                    
+                    // Display original image
+                    if (data.original_image_url) {
+                        setupImageDisplay(originalImage, '/static/' + data.original_image_url, 'Original Image');
+                    } else {
+                        originalPlaceholder.style.display = 'flex';
+                        originalPlaceholder.innerHTML = 'Original image not available';
+                    }
+                    
+                    // Display annotated image
+                    if (data.annotated_image_url) {
+                        setupImageDisplay(processedImage, '/static/' + data.annotated_image_url, 'Annotated Image');
+                    } else {
+                        processedPlaceholder.style.display = 'flex';
+                        processedPlaceholder.innerHTML = 'Annotated image not available';
+                    }
+                    
+                    // Update pipeline results for single image
+                    document.getElementById('stage1YoloDetections').textContent = data.stage1_yolo_detections || '0';
+                    document.getElementById('stage2EnhancementApplied').textContent = data.stage2_enhancement_applied || '1';
+                    document.getElementById('stage3OcrSuccess').textContent = data.stage3_ocr_success || '0';
+                    document.getElementById('stage4SvmClassified').textContent = data.stage4_svm_classified || '0';
+                    document.getElementById('stage4ViolationsDetected').textContent = data.stage4_violations_detected || '0';
+                    document.getElementById('uniquePlates').textContent = data.unique_plates_count || '1';
+                    document.getElementById('processingTime').textContent = data.processing_time || 'N/A';
+                    
+                    // Show violation stats if violations detected
+                    if (data.stage4_violations_detected > 0) {
+                        document.getElementById('violationsDetected').textContent = data.stage4_violations_detected;
+                        violationStats.style.display = 'block';
+                    }
+                    
+                    // Display plate result
+                    displayDetectedPlates(data.detected_plates || []);
+                    
+                    // Display enhancement comparison
+                    if (data.enhancement_comparisons && data.enhancement_comparisons.length > 0) {
+                        displayEnhancementComparisons(data.enhancement_comparisons);
+                    }
+                    
+                } else {
+                    // Handle video response
+                    console.log('Video URLs:', {
+                        original: data.original_video_path,
+                        processed: data.video_path
+                    });
+                    
+                    // Setup videos with proper error handling
+                    setupVideoDisplay(originalVideo, '/static/' + data.original_video_path, 'Original Video');
+                    setupVideoDisplay(processedVideo, '/static/' + data.video_path, 'Processed Video');
+                    
+                    // Update pipeline results
+                    document.getElementById('stage1YoloDetections').textContent = data.stage1_yolo_detections || 0;
+                    document.getElementById('stage2EnhancementApplied').textContent = data.stage2_enhancement_applied || 0;
+                    document.getElementById('stage3OcrSuccess').textContent = data.stage3_ocr_success || 0;
+                    document.getElementById('stage4SvmClassified').textContent = data.stage4_svm_classified || 0;
+                    document.getElementById('stage4ViolationsDetected').textContent = data.stage4_violations_detected || 0;
+                    document.getElementById('uniquePlates').textContent = data.unique_plates_count || 0;
+                    document.getElementById('processingTime').textContent = data.processing_time || 'N/A';
+                    
+                    // Show violation stats if violations detected
+                    if (data.stage4_violations_detected > 0) {
+                        document.getElementById('violationsDetected').textContent = data.stage4_violations_detected;
+                        violationStats.style.display = 'block';
+                    }
+                    
+                    // Display detected plates
+                    displayDetectedPlates(data.unique_plates || []);
+                    
+                    // Display enhancement comparisons
+                    if (data.enhancement_comparisons && data.enhancement_comparisons.length > 0) {
+                        displayEnhancementComparisons(data.enhancement_comparisons);
+                    }
+                }
+                
+                // Show TXT download section if report available
+                if (data.plates_txt_url) {
+                    currentTxtUrl = data.plates_txt_url;
+                    txtDownloadSection.style.display = 'block';
+                }
+                
+                // Show result section
+                resultSection.classList.add('show');
+                
+            } else {
+                throw new Error(data.error || 'Unknown error occurred');
+            }
+        }
+        
+        function setupVideoDisplay(videoElement, videoPath, videoName) {
+            // Clear existing sources
+            videoElement.innerHTML = '';
+            
+            // Add timestamp to prevent caching
+            const timestamp = new Date().getTime();
+            const videoUrl = videoPath + '?t=' + timestamp;
+            
+            console.log(`🔄 Setting up ${videoName}: ${videoUrl}`);
+            
+            // Create source element
+            const source = document.createElement('source');
+            source.src = videoUrl;
+            source.type = 'video/mp4';
+            
+            videoElement.appendChild(source);
+            videoElement.style.display = 'block';
+            
+            // Enhanced error handling
+            videoElement.addEventListener('error', function(e) {
+                console.error(`❌ ${videoName} error:`, this.error);
+                console.error(`❌ ${videoName} error code:`, this.error?.code);
+                console.error(`❌ ${videoName} src:`, source.src);
+                
+                // Show placeholder with error
+                const placeholder = videoName === 'Original Video' ? originalPlaceholder : processedPlaceholder;
+                placeholder.style.display = 'flex';
+                placeholder.innerHTML = `
+                    ❌ Video failed to load<br>
+                    <small>Error: ${this.error?.message || 'Unknown error'}</small><br>
+                    <small>URL: ${videoUrl}</small>
+                `;
+                videoElement.style.display = 'none';
+            });
+            
+            videoElement.addEventListener('loadeddata', function() {
+                console.log(`✅ ${videoName} loaded successfully`);
+            });
+            
+            // Load the video
+            videoElement.load();
+        }
+        
+        function setupImageDisplay(imgElement, imgUrl, imgName) {
+            // Add timestamp to prevent caching
+            const timestamp = new Date().getTime();
+            const finalUrl = imgUrl + '?t=' + timestamp;
+            
+            console.log(`🔄 Setting up ${imgName}: ${finalUrl}`);
+            
+            imgElement.src = finalUrl;
+            imgElement.alt = imgName;
+            imgElement.style.display = 'block';
+            
+            imgElement.onerror = function() {
+                console.error(`❌ ${imgName} failed to load`);
+                const placeholder = imgName === 'Original Image' ? originalPlaceholder : processedPlaceholder;
+                placeholder.style.display = 'flex';
+                placeholder.innerHTML = `
+                    ❌ Image failed to load<br>
+                    <small>URL: ${finalUrl}</small>
+                `;
+                imgElement.style.display = 'none';
+            };
+            
+            imgElement.onload = function() {
+                console.log(`✅ ${imgName} loaded successfully`);
+            };
+        }
+        
+        function displayDetectedPlates(plates) {
+            const platesList = document.getElementById('platesList');
+            
+            if (!plates || plates.length === 0) {
+                platesList.innerHTML = '<div class="no-detections">No license plates detected.</div>';
+                return;
+            }
+
+            platesList.innerHTML = plates.map((plate, index) => {
+                const hasViolation = plate.violation_detection && plate.violation_detection.has_violation;
+                const violationInfo = hasViolation ? plate.violation_detection : null;
+                const isFallback = plate.ocr_method && plate.ocr_method.includes('fallback');
+                const plateText = plate.text || plate.fallback_text || 'Unknown';
+                
+                return `
+                <div class="plate-item">
+                    <div class="plate-header">
+                        <span class="plate-text">${escapeHtml(plateText)}</span>
+                        <div class="plate-badges">
+                            ${plate.yolo_confidence ? `<span class="badge badge-yolo" title="YOLO Detection Confidence">
+                                YOLO ${Math.round((plate.yolo_confidence || 0) * 100)}%
+                            </span>` : ''}
+                            <span class="badge badge-enhancer" title="Real-ESRGAN Enhancement">
+                                ESRGAN
+                            </span>
+                            <span class="badge badge-ocr" title="OCR Confidence">
+                                OCR ${Math.round((plate.ocr_confidence || plate.fallback_confidence || 0) * 100)}%
+                            </span>
+                            ${plate.svm_type_classification ? `<span class="badge badge-svm" title="SVM Classification">
+                                SVM ${Math.round((plate.svm_type_confidence || 0) * 100)}%
+                            </span>` : ''}
+                            ${hasViolation ? `<span class="badge badge-violation" title="Coding Violation">VIOLATION</span>` : ''}
+                            ${isFallback ? `<span class="badge badge-fallback" title="Fallback OCR Result">FALLBACK</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="plate-details">
+                        ${plate.frame ? `<span class="detail-item">📍 Frame: ${plate.frame}</span>` : ''}
+                        ${plate.svm_type_classification ? `<span class="detail-item">🤖 Type: ${plate.svm_type_classification}</span>` : ''}
+                        <span class="detail-item">🔧 Method: ${plate.ocr_method || 'N/A'}</span>
+                        ${plate.is_valid_plate !== undefined ? `<span class="detail-item">✅ Valid: ${plate.is_valid_plate ? 'Yes' : 'No'}</span>` : ''}
+                        ${plate.raw_text ? `<span class="detail-item">📝 Raw: ${escapeHtml(plate.raw_text)}</span>` : ''}
+                    </div>
+                    ${hasViolation ? `
+                    <div class="violation-alert">
+                        ⚡ Coding Violation: ${violationInfo.violation_type} 
+                        (Confidence: ${Math.round(violationInfo.confidence * 100)}%)
+                        <br>
+                        <small>Last Digit: ${violationInfo.last_digit} | Hour: ${violationInfo.hour} | Rush Hour: ${violationInfo.is_rush_hour ? 'Yes' : 'No'} | Weekend: ${violationInfo.is_weekend ? 'Yes' : 'No'}</small>
+                    </div>
+                    ` : ''}
+                    ${isFallback ? `
+                    <div class="fallback-alert">
+                        ⚠️ Note: This is a fallback OCR result. The text may not be a valid license plate.
+                    </div>
+                    ` : ''}
+                </div>
+                `;
+            }).join('');
+        }
+        
+        function displayEnhancementComparisons(comparisons) {
+            if (!comparisons || comparisons.length === 0) {
+                enhancementSection.style.display = 'none';
+                return;
+            }
+
+            enhancementComparison.innerHTML = comparisons.map((comparison, index) => {
+                const finalUrl = '/static/' + comparison + '?t=' + new Date().getTime();
+                
+                return `
+                <div class="comparison-item">
+                    <div class="comparison-label">Real-ESRGAN Enhancement ${index + 1}</div>
+                    <img src="${finalUrl}" 
+                         alt="Enhancement Comparison" 
+                         onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#666; padding:20px;\'>Image not available</div>';">
+                    <div style="font-size: 0.8em; color: #666;">Enhanced vs Original</div>
+                </div>
+                `;
+            }).join('');
+
+            enhancementSection.style.display = 'block';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Test debug endpoints on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded. Testing debug endpoints...');
+            
+            // Test if debug endpoints are accessible
+            fetch('/debug/results')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Debug endpoint accessible. Files in results:', data.files);
+                })
+                .catch(error => {
+                    console.log('Debug endpoint not available or error:', error.message);
+                });
+        });
+    </script>
+</body>
+</html>
